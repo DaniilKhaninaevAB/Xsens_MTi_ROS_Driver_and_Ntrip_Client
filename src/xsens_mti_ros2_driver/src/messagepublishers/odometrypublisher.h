@@ -50,7 +50,7 @@ struct ODOMETRYPublisher : public PacketCallback
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     std::string odom_init_frame_id = "odom_init";
-    std::string base_frame_id = "base_link"; 
+    std::string base_frame_id = "base_footprint"; 
 
     // Member variables to store initial UTM position and zone
     struct UTMCoordinate
@@ -329,7 +329,7 @@ struct ODOMETRYPublisher : public PacketCallback
             nav_msgs::msg::Odometry msg;
 
             msg.header.stamp = timestamp;
-            msg.header.frame_id = frame_id;
+            msg.header.frame_id = "odom";
             msg.child_frame_id = base_frame_id;
 
             // Set orientation
