@@ -50,7 +50,10 @@ struct ODOMETRYPublisher : public PacketCallback
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub;
     std::string frame_id = DEFAULT_FRAME_ID;
     std::string odom_init_frame_id = "odom_init";
-    std::string base_frame_id = "base_footprint"; 
+    /// Fixed map frame for GNSS/INS odometry and TF (nav_msgs header.frame_id / TF parent).
+    std::string odom_frame_id = "odom";
+    /// Robot base used in odometry child_frame_id and TF child (REP-105 style).
+    std::string base_frame_id = "base_footprint";
 
     // Member variables to store initial UTM position and zone
     struct UTMCoordinate
@@ -76,6 +79,8 @@ struct ODOMETRYPublisher : public PacketCallback
 
         node->get_parameter("publisher_queue_size", pub_queue_size);
         node->get_parameter("frame_id", frame_id);
+        node->get_parameter("odom_frame_id", odom_frame_id);
+        node->get_parameter("base_frame_id", base_frame_id);
         node->get_parameter("pub_odometry_transform", m_pub_tf);
 
         pub = node->create_publisher<nav_msgs::msg::Odometry>("/odometry", pub_queue_size);
@@ -138,45 +143,21 @@ struct ODOMETRYPublisher : public PacketCallback
 
 
 
-    /**
-     * @brief Populates and broadcasts a TransformStamped message based on the provided pose and frame information.
-     *
-     * This function fills in a `geometry_msgs::msg::TransformStamped` message with the given parent and child frame IDs,
-     * pose data (position and orientation), and a timestamp. After populating the message, it broadcasts the transform
-     * using a TF broadcaster, allowing other nodes in the ROS 2 system to access the transformation between frames.
-     *
-     * @param parent_frame_id    The identifier of the parent coordinate frame.
-     * @param child_frame_id     The identifier of the child coordinate frame.
-     * @param pose               The pose data containing position and orientation to define the transform.
-     * @param transformStampedMsg Reference to a TransformStamped message that will be populated and sent.
-     * @param timestamp          The time at which the transform is valid.
-     */
-    void fillTransform(
+    /** Fills `out` from `pose`; caller broadcasts with the appropriate broadcaster. */
+    static void poseToTransform(
         const std::string &parent_frame_id,
         const std::string &child_frame_id,
         const geometry_msgs::msg::Pose &pose,
-        geometry_msgs::msg::TransformStamped &transformStampedMsg,
-        rclcpp::Time timestamp)
+        geometry_msgs::msg::TransformStamped &out,
+        const rclcpp::Time &stamp)
     {
-        // Set the timestamp for the transform message to the provided time.
-        transformStampedMsg.header.stamp = timestamp;
-
-        // Assign the parent frame ID to the transform message.
-        transformStampedMsg.header.frame_id = parent_frame_id;
-
-        // Assign the child frame ID to the transform message.
-        transformStampedMsg.child_frame_id = child_frame_id;
-
-        // Populate the translation component of the transform with the position data from the pose.
-        transformStampedMsg.transform.translation.x = pose.position.x;
-        transformStampedMsg.transform.translation.y = pose.position.y;
-        transformStampedMsg.transform.translation.z = pose.position.z;
-
-        // Populate the rotation component of the transform with the orientation data from the pose.
-        transformStampedMsg.transform.rotation = pose.orientation;
-
-        // Broadcast the populated TransformStamped message using the TF broadcaster.
-        m_tf_broadcaster_->sendTransform(transformStampedMsg);
+        out.header.stamp = stamp;
+        out.header.frame_id = parent_frame_id;
+        out.child_frame_id = child_frame_id;
+        out.transform.translation.x = pose.position.x;
+        out.transform.translation.y = pose.position.y;
+        out.transform.translation.z = pose.position.z;
+        out.transform.rotation = pose.orientation;
     }
 
 
@@ -329,7 +310,7 @@ struct ODOMETRYPublisher : public PacketCallback
             nav_msgs::msg::Odometry msg;
 
             msg.header.stamp = timestamp;
-            msg.header.frame_id = "odom";
+            msg.header.frame_id = odom_frame_id;
             msg.child_frame_id = base_frame_id;
 
             // Set orientation
@@ -362,7 +343,7 @@ struct ODOMETRYPublisher : public PacketCallback
                 if (m_pub_tf)
                 {
                     geometry_msgs::msg::TransformStamped transform;
-                    fillTransform(odom_init_frame_id, frame_id, pose, transform, timestamp);
+                    poseToTransform(odom_init_frame_id, frame_id, pose, transform, timestamp);
                     m_static_tf_broadcaster_->sendTransform(transform);
                 }
             }
@@ -392,15 +373,11 @@ struct ODOMETRYPublisher : public PacketCallback
             // Publish the odometry message
             pub->publish(msg);
 
-            // Publish odometry transformation
+            // Publish odom -> base_footprint (same frames as the Odometry message)
             if (m_pub_tf)
             {
-                geometry_msgs::msg::Pose pose;
-                pose.position = msg.pose.pose.position;
-                pose.orientation = msg.pose.pose.orientation;
-
                 geometry_msgs::msg::TransformStamped transform;
-                fillTransform(msg.header.frame_id, msg.child_frame_id, pose, transform, timestamp);
+                poseToTransform(odom_frame_id, base_frame_id, msg.pose.pose, transform, timestamp);
                 m_tf_broadcaster_->sendTransform(transform);
             }
         }

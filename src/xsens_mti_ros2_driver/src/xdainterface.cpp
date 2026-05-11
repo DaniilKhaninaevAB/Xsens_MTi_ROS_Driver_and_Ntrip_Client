@@ -1577,6 +1577,10 @@ void XdaInterface::declareCommonParameters()
 		m_node->declare_parameter("pub_odometry", should_publish);
 	if (!m_node->has_parameter("pub_odometry_transform"))
 		m_node->declare_parameter("pub_odometry_transform", should_publish);
+	if (!m_node->has_parameter("odom_frame_id"))
+		m_node->declare_parameter("odom_frame_id", "odom");
+	if (!m_node->has_parameter("base_frame_id"))
+		m_node->declare_parameter("base_frame_id", "base_footprint");
 	if (!m_node->has_parameter("pub_gnsspvt"))
 		m_node->declare_parameter("pub_gnsspvt", should_publish);
 	if (!m_node->has_parameter("pub_gnssatinfo"))
