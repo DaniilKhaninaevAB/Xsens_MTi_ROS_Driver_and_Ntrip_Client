@@ -32,6 +32,7 @@
 #define ODOMETRYPUBLISHER_H
 
 #include "packetcallback.h"
+#include "publisherhelperfunctions.h"
 #include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #if __has_include(<tf2/LinearMath/Quaternion.hpp>)
@@ -360,12 +361,14 @@ struct ODOMETRYPublisher : public PacketCallback
             double central_meridian = central_meridian_deg * M_PI / 180.0;
             double convergence_angle = atan(tan(longitudeRad - central_meridian) * sin(latitudeRad));
 
-            // Set linear velocities
-            msg.twist.twist.linear.x = v[0];
-            msg.twist.twist.linear.y = v[1];
-            msg.twist.twist.linear.z = v[2];
+            // Linear velocity: rotate from fixed (ENU/NED) frame into body frame (child_frame_id)
+            double bx, by, bz;
+            rotateWorldToBody(q, v[0], v[1], v[2], bx, by, bz);
+            msg.twist.twist.linear.x = bx;
+            msg.twist.twist.linear.y = by;
+            msg.twist.twist.linear.z = bz;
 
-            // Set angular velocities
+            // Angular velocity: already in sensor body frame (same as /filter/velocity_body)
             msg.twist.twist.angular.x = gyro[0];
             msg.twist.twist.angular.y = gyro[1];
             msg.twist.twist.angular.z = gyro[2];
