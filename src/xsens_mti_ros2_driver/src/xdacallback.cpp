@@ -46,7 +46,7 @@ XdaCallback::XdaCallback(rclcpp::Node::SharedPtr node, size_t maxBufferSize)
 	parent_node->get_parameter("time_option", time_option);
 	m_timeHandler.setTimeOption(time_option);
 	//if else to check time_option rosinfo to print time_option
-	RCLCPP_INFO(parent_node->get_logger(), "Xsens ROS2 driver node tag (Autobrains fork): l4_dev_v1.3.0");
+	RCLCPP_INFO(parent_node->get_logger(), "Xsens ROS2 driver node tag (Autobrains fork): l4_dev_v1.3.1");
 	if (time_option == 0)
 	{
 		RCLCPP_INFO(parent_node->get_logger(), "Rosnode time_option parameter is utc time from MTi");
